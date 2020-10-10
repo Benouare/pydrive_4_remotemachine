@@ -102,3 +102,4 @@ static/
 tests/data/*
 
 *.sqlite3
+google_drive/
