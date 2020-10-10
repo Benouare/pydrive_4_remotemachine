@@ -21,10 +21,6 @@ lib-lint:
 		flake8 --ignore=W504 --max-line-length=127 --max-complexity=19 pynas/ tests/ setup.py
 		mypy --strict --ignore-missing-imports pynas/ tests/ setup.py
 
-deploy-gandi:
-	git push gandi master
-	ssh 3223796@git.sd6.gpaas.net deploy default.git
-
 test-local:
 	python test-local.py
 
@@ -42,14 +38,7 @@ lib-clean:
 	rm -rf .mypy_cache
 	rm -rf .hypothesis
 
-package-all:lib-clean
-	python setup.py bdist_wheel --dev
-	python setup.py bdist_wheel
-
-package-dev: lib-clean
-	python setup.py bdist_wheel --dev
-
-package-prod: lib-clean
+package:lib-clean
 	python setup.py bdist_wheel
 
 deploy:

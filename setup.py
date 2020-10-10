@@ -7,15 +7,10 @@ this_directory = path.abspath(path.dirname(__file__))
 with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
-type = "prod"
-if "--dev" in sys.argv:
-    type = "dev"
-    sys.argv.remove("--dev")
-
 requires = [
-    'requests', 'responses', 'psutil', 'PyJWT', 'py-cpuinfo', 'pySMART'
+    'pydrive',
 ]
-setup(name='pynas-{}'.format(type),
+setup(name='pydrivesync',
       version='0.0.1',
       description='PyDriveSync',
       author='Benoît Laviale',
@@ -25,7 +20,6 @@ setup(name='pynas-{}'.format(type),
       install_requires=requires,
       entry_points={
           "console_scripts": [
-              "pyDriveSync=pydrivesync.client:run_{}".format(type)
+              "pydrivesync=pydrivesync.client:run"
           ]
-},
-    zip_safe=False)
+},zip_safe=False)
