@@ -92,10 +92,12 @@ class PyDriveSync():
 
 def run():
     import sys
-    if not len(sys.argv) == 2:
+    if not (len(sys.argv) <= 3 and len(sys.argv) > 1):
         print("pydrivesync folder")
         #print("pydrivesync configyaml")
         exit()
-    path, config_file = sys.argv[1], sys.argv[2]
+    path, config_file = sys.argv[1], None if len(sys.argv) < 3 else sys.argv[2]
     p = PyDriveSync(path)
+    if not config_file is None:
+        p = PyDriveSync(path,config_file)
     p.run()

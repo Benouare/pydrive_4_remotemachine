@@ -21,5 +21,8 @@ setup(name='pydrivesync',
       entry_points={
           "console_scripts": [
               "pydrivesync=pydrivesync.client:run"
-          ]
-},zip_safe=False)
+          ],
+      },
+      data_files = [("/etc",["pydrivesync.yaml"])],
+      zip_safe=False
+)
