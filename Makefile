@@ -2,23 +2,19 @@ init:
 	pip install -r requirements.txt
 
 test:
-	rm -rf tests/data
-	rm -rf tests/borgmatic
+	rm -rf tests/google_drive
+	rm -rf tests/settings.yaml
 	pytest -x -v tests/
 
-quick-test:
-	rm -rf tests/data
-	rm -rf tests/borgmatic
-	pytest -x -v tests/
 
 test-coverage:
-	rm -rf tests/data
-	rm -rf tests/borgmatic
-	pytest --cov=pynas --cov-report=html -v tests/
+	rm -rf tests/google_drive
+	rm -rf tests/settings.yaml
+	pytest --cov=pydrivesync --cov-report=html -v tests/
 	open htmlcov/index.html
 
 lib-lint:
-		flake8 --ignore=W504 --max-line-length=127 --max-complexity=19 pynas/ tests/ setup.py
+		flake8 --ignore=W504 --max-line-length=127 --max-complexity=19 pydrivesync/ tests/ setup.py
 		mypy --strict --ignore-missing-imports pynas/ tests/ setup.py
 
 test-local:

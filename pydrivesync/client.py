@@ -1,8 +1,10 @@
+import hashlib
+import os
+import shutil
+
+import pkg_resources
 from pydrive.auth import GoogleAuth
 from pydrive.drive import GoogleDrive
-import os
-import hashlib
-import shutil
 
 
 class PyDriveSync():
@@ -43,18 +45,19 @@ class PyDriveSync():
             if os.path.exists(obj["path"]):
                 os.remove(obj["path"])
         else:
-            shutil.rmtree(obj["path"])
+            if os.path.exists(obj["path"]):
+                shutil.rmtree(obj["path"])
 
     def __init__(self, file_path, file_config="/etc/pydrivesync.yaml"):
         self.download_folder = os.path.join(
             os.path.abspath(os.getcwd()), file_path, self.DRIVE_PATH)
+        if not os.path.exists(self.download_folder):
+            os.mkdir(self.download_folder)
         gauth = GoogleAuth(settings_file=file_config)
         gauth.CommandLineAuth()
         self.drive = GoogleDrive(gauth)
 
     def run(self):
-        if not os.path.exists(self.download_folder):
-            os.mkdir(self.download_folder)
         self.list_all_files(self.download_folder)
         self.list_all_files_google()
         files_gdrive = [os.path.join(self.download_folder, x["title"])
@@ -90,14 +93,24 @@ class PyDriveSync():
                     print("{} downloaded".format(file['title']))
 
 
+def copyConfigFile(config_file):
+    if config_file is not None:
+        if not os.path.exists(config_file):
+            shutil.copyfile(pkg_resources.resource_filename(
+                __name__, "pydrivesync.yaml"), config_file)
+
+
 def run():
     import sys
     if not (len(sys.argv) <= 3 and len(sys.argv) > 1):
         print("pydrivesync folder")
-        #print("pydrivesync configyaml")
+        # print("pydrivesync configyaml")
         exit()
-    path, config_file = sys.argv[1], None if len(sys.argv) < 3 else sys.argv[2]
-    p = PyDriveSync(path)
+    data_path, config_file = sys.argv[1], None if len(
+        sys.argv) < 3 else sys.argv[2]
     if not config_file is None:
-        p = PyDriveSync(path,config_file)
+        p = PyDriveSync(path, config_file)
+    else:
+        copyConfigFile("/etc/pydrivesync.yaml")
+        p = PyDriveSync(data_path)
     p.run()

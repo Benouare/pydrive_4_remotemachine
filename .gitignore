@@ -99,7 +99,10 @@ tests/_test
 .pytest_cache/
 
 static/
-tests/data/*
+tests/google_drive/*
+tests/settings.yaml
 
 *.sqlite3
 google_drive/
+
+credentials.json

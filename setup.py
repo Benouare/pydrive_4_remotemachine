@@ -23,6 +23,6 @@ setup(name='pydrivesync',
               "pydrivesync=pydrivesync.client:run"
           ],
       },
-      data_files = [("/etc",["pydrivesync.yaml"])],
+      data_files=[("/pydrivesync/", ["pydrivesync/pydrivesync.yaml"])],
       zip_safe=False
-)
+      )
