@@ -6,6 +6,8 @@ import pkg_resources
 from pydrive.auth import GoogleAuth
 from pydrive.drive import GoogleDrive
 
+from pydrivesync import constance
+
 
 class PyDriveSync():
 
@@ -83,8 +85,9 @@ class PyDriveSync():
         for file in files:
             if name:
                 file["title"] = os.path.join(name, file["title"])
+                print(file["title"])
             if file["mimeType"] == "application/vnd.google-apps.folder":
-                things = self.list_all_files_google(
+                self.list_all_files_google(
                     "{}".format(file["id"]), file["title"])
         self.current_remote_files = self.current_remote_files + files
         return files
@@ -148,6 +151,7 @@ class PyDriveSync():
                             self.download_folder, file['title']), mimetype=self.mimetypes[file["mimeType"]])
                     print("{} downloaded".format(file['title']))
                 except Exception as e:
+                    print("Error on : {}".append(file['title']))
                     self.error_files.append(file['title'])
 
 
@@ -161,7 +165,7 @@ def copyConfigFile(config_file):
 def run():
     import sys
     import argparse
-
+    version_str = 'PyDriveSync v{}'.format(constance.__VERSION__)
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "path", help="path is the path that will be used to sync data", type=str)
@@ -169,6 +173,7 @@ def run():
         "-c", "--config", help="path to config yaml file, default /etc/pydrivesync.yaml")
     parser.add_argument("--gdriveIds", "-g",
                         help="gdriveIds to specifie root folders ex : pathId1,pathId2,pathId3...")
+    parser.add_argument('--version', action='version', version=version_str)
     args = parser.parse_args()
     gdriveIds = ["root"]
     if args.config:
