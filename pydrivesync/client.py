@@ -87,8 +87,11 @@ class PyDriveSync():
                 file["title"] = os.path.join(name, file["title"])
                 print(file["title"])
             if file["mimeType"] == "application/vnd.google-apps.folder":
-                self.list_all_files_google(
-                    "{}".format(file["id"]), file["title"])
+                try:
+                    self.list_all_files_google(
+                        "{}".format(file["id"]), file["title"])
+                except Exception as e:
+                    print("error {}".format(file["title"]))
         self.current_remote_files = self.current_remote_files + files
         return files
 
