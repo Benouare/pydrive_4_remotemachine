@@ -4,7 +4,7 @@ init:
 test:
 	rm -rf tests/google_drive
 	rm -rf tests/settings.yaml
-	pytest -x -v tests/
+	pytest -x -v tests/ -s
 
 
 test-coverage:
@@ -38,4 +38,4 @@ package:lib-clean
 	python setup.py bdist_wheel
 
 deploy:
-	cp dist/pynas_*.whl ../nas_install/
+	cp dist/pydrivesync*.whl ../nas_install/

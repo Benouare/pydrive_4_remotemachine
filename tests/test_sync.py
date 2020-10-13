@@ -26,7 +26,7 @@ class pydrivesyncTest(unittest.TestCase):
         md5_2 = p.md5("tests/google_drive/test_folder/plop3.txt")
 
         p.run()
-
+        self.assertTrue(os.path.exists("tests/google_drive/test_file.docx"))
         self.assertFalse(os.path.exists("tests/google_drive/plop.text"))
         self.assertTrue(os.path.exists("tests/google_drive/plop2.txt"))
         self.assertEqual(p.md5("tests/google_drive/plop2.txt"), md5_1)

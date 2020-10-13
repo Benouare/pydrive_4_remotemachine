@@ -11,7 +11,7 @@ requires = [
     'pydrive',
 ]
 setup(name='pydrivesync',
-      version='0.0.1',
+      version='0.0.5',
       description='PyDriveSync',
       author='Benoît Laviale',
       author_email='contact@benoit-laviale.fr',
