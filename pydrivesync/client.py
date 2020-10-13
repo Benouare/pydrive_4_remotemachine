@@ -79,17 +79,13 @@ class PyDriveSync():
                 'includeTeamDriveItems': True,
                 'supportsTeamDrives': True
             }
-        files = self.drive.ListFile(
-            params
-        ).GetList()
+        files = self.drive.ListFile(params).GetList()
         for file in files:
-            print(file)
             if name:
                 file["title"] = os.path.join(name, file["title"])
             if file["mimeType"] == "application/vnd.google-apps.folder":
                 things = self.list_all_files_google(
                     "{}".format(file["id"]), file["title"])
-                print(things)
         self.current_remote_files = self.current_remote_files + files
         return files
 

@@ -9,7 +9,7 @@ from pydrivesync.client import PyDriveSync, copyConfigFile
 class pydrivesyncTest(unittest.TestCase):
 
     def test_read_file(self):
-        p = PyDriveSync("tests/", "settings.yaml")
+        p = PyDriveSync("tests/", "tests/test-settings.yaml")
         file = open("tests/google_drive/plop.text", "w")
         file.write("plop")
         file.close()
