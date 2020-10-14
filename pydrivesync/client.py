@@ -155,7 +155,7 @@ class PyDriveSync():
                     print("{} downloaded".format(file['title']))
                 except Exception as e:
                     print("Error on : {}".append(file['title']))
-                    self.error_files.append(file['title'])
+                    self.error_files.format(file['title'])
 
 
 def copyConfigFile(config_file):
