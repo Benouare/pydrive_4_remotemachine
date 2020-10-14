@@ -83,20 +83,22 @@ class PyDriveSync():
             }
         files = self.drive.ListFile(params).GetList()
         for file in files:
-            if "md5Checksum" in file.keys():
-                keys = ["title", "id", "md5Checksum", 'mimeType']
-            else:
-                keys = ["title", "id", 'mimeType']
-            file = {your_key: file[your_key]for your_key in keys}
+            #no_delete = ['kind', 'id', 'etag', 'selfLink', 'webContentLink', 'alternateLink', 'embedLink', 'iconLink', 'thumbnailLink', 'title', 'mimeType', 'labels', 'copyRequiresWriterPermission', 'createdDate', 'modifiedDate', 'modifiedByMeDate', 'lastViewedByMeDate', 'markedViewedByMeDate','version', 'parents', 'exportLinks', 'userPermission', 'quotaBytesUsed', 'ownerNames', 'owners', 'lastModifyingUserName', 'lastModifyingUser', 'capabilities', 'editable', 'copyable', 'writersCanShare', 'shared', 'explicitlyTrashed', 'appDataContents', 'spaces']
+            no_delete = ["title", "mimeType", "id", "md5Checksum"]
+            keys = list(file.keys())
+            for key in keys:
+                if key not in no_delete:
+                    del file[key]
             if name:
                 file["title"] = os.path.join(name, file["title"])
-                print(file["title"])
+
             if file["mimeType"] == "application/vnd.google-apps.folder":
                 try:
                     self.list_all_files_google(
                         "{}".format(file["id"]), file["title"])
                 except Exception as e:
                     print("error {}".format(file["title"]))
+                    print(e)
             self.current_remote_files.append(file)
         return files
 
@@ -160,6 +162,7 @@ class PyDriveSync():
                     print("{} downloaded".format(file['title']))
                 except Exception as e:
                     print("Error on : {}".format(file['title']))
+                    print(e)
                     self.error_files.append(file['title'])
 
 
