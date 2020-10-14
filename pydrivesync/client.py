@@ -83,6 +83,11 @@ class PyDriveSync():
             }
         files = self.drive.ListFile(params).GetList()
         for file in files:
+            if "md5Checksum" in file.keys():
+                keys = ["title", "id", "md5Checksum", 'mimeType']
+            else:
+                keys = ["title", "id", 'mimeType']
+            file = {your_key: file[your_key]for your_key in keys}
             if name:
                 file["title"] = os.path.join(name, file["title"])
                 print(file["title"])
@@ -92,7 +97,7 @@ class PyDriveSync():
                         "{}".format(file["id"]), file["title"])
                 except Exception as e:
                     print("error {}".format(file["title"]))
-        self.current_remote_files = self.current_remote_files + files
+            self.current_remote_files.append(file)
         return files
 
     def delete_file_path(self, obj):
@@ -154,8 +159,8 @@ class PyDriveSync():
                             self.download_folder, file['title']), mimetype=self.mimetypes[file["mimeType"]])
                     print("{} downloaded".format(file['title']))
                 except Exception as e:
-                    print("Error on : {}".append(file['title']))
-                    self.error_files.format(file['title'])
+                    print("Error on : {}".format(file['title']))
+                    self.error_files.append(file['title'])
 
 
 def copyConfigFile(config_file):
