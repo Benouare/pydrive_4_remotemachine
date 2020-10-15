@@ -7,6 +7,7 @@ from pydrive.auth import GoogleAuth
 from pydrive.drive import GoogleDrive
 
 from pydrivesync import constance
+from pydrivesync.ThreadDownloader import Downloader
 
 
 class PyDriveSync():
@@ -14,6 +15,7 @@ class PyDriveSync():
     DRIVE_PATH = "google_drive/"
     current_files = dict()
     current_remote_files = []
+    threads = []
     drive = None
     GOOGLE_MIME = [
         "application/vnd.google-apps.folder",
@@ -82,16 +84,19 @@ class PyDriveSync():
                 'supportsTeamDrives': True
             }
         files = self.drive.ListFile(params).GetList()
+
+        files = sorted(
+            files, key=lambda file: int(file['fileSize']) if 'fileSize' in file else 0)
+
         for file in files:
-            #no_delete = ['kind', 'id', 'etag', 'selfLink', 'webContentLink', 'alternateLink', 'embedLink', 'iconLink', 'thumbnailLink', 'title', 'mimeType', 'labels', 'copyRequiresWriterPermission', 'createdDate', 'modifiedDate', 'modifiedByMeDate', 'lastViewedByMeDate', 'markedViewedByMeDate','version', 'parents', 'exportLinks', 'userPermission', 'quotaBytesUsed', 'ownerNames', 'owners', 'lastModifyingUserName', 'lastModifyingUser', 'capabilities', 'editable', 'copyable', 'writersCanShare', 'shared', 'explicitlyTrashed', 'appDataContents', 'spaces']
+            # no_delete = ['kind', 'id', 'etag', 'selfLink', 'webContentLink', 'alternateLink', 'embedLink', 'iconLink', 'thumbnailLink', 'title', 'mimeType', 'labels', 'copyRequiresWriterPermission', 'createdDate', 'modifiedDate', 'modifiedByMeDate', 'lastViewedByMeDate', 'markedViewedByMeDate','version', 'parents', 'exportLinks', 'userPermission', 'quotaBytesUsed', 'ownerNames', 'owners', 'lastModifyingUserName', 'lastModifyingUser', 'capabilities', 'editable', 'copyable', 'writersCanShare', 'shared', 'explicitlyTrashed', 'appDataContents', 'spaces']
             no_delete = ["title", "mimeType", "id", "md5Checksum"]
-            keys = list(file.keys())
-            for key in keys:
-                if key not in no_delete:
-                    del file[key]
+            # keys = list(file.keys())
+            # for key in keys:
+            #    if key not in no_delete:
+            #        del file[key]
             if name:
                 file["title"] = os.path.join(name, file["title"])
-
             if file["mimeType"] == "application/vnd.google-apps.folder":
                 try:
                     self.list_all_files_google(
@@ -99,8 +104,69 @@ class PyDriveSync():
                 except Exception as e:
                     print("error {}".format(file["title"]))
                     print(e)
-            self.current_remote_files.append(file)
-        return files
+            self.download(file)
+        del files
+
+    def download(self, file):
+        print("###")
+        print("Processing remote file {} ({}  {})".format(
+            file['title'], file["mimeType"], file["fileSize"] if "fileSize" in file else 0))
+        if file["mimeType"] == "application/vnd.google-apps.folder":
+            if not os.path.exists(os.path.join(self.download_folder, file['title'])):
+                os.makedirs(os.path.join(
+                    self.download_folder, file['title']))
+            self.delete_in_file_list(os.path.join(
+                self.download_folder, file['title']))
+            return
+
+        must_download = True
+        if os.path.exists(os.path.join(self.download_folder, file['title'])) and "md5Checksum" in file:
+            md5 = self.md5(os.path.join(
+                self.download_folder, file['title']))
+            if md5 == file["md5Checksum"]:
+                must_download = False
+            print("{} alredy there, checking md5 are same? {} ('{}' vs '{}')".format(
+                file['title'], not must_download, md5, file["md5Checksum"]))
+            self.delete_in_file_list(os.path.join(
+                self.download_folder, file['title']))
+
+        if not os.path.exists(os.path.dirname(os.path.join(self.download_folder, file['title']))):
+            os.makedirs(os.path.dirname(os.path.join(
+                self.download_folder, file['title'])))
+
+        if must_download is True:
+            try:
+                if file["mimeType"] not in self.mimetypes.keys() and int(file["fileSize"]) < 1000000:
+                    file.GetContentFile(os.path.join(
+                        self.download_folder, file['title']))
+                else:
+                    while len(self.threads) > 5:
+                        for t in self.threads:
+                            if t.is_alive() == False:
+                                self.threads.remove(t)
+                    print("there is currently {} threads alive".format(
+                        len(self.threads)))
+                    p = None
+                    if file["mimeType"] not in self.mimetypes.keys():
+                        p = Downloader(self.download_folder, file)
+                    else:
+                        p = Downloader(self.download_folder, file,
+                                       self.mimetypes[file["mimeType"]])
+                    print("Waking up new thread")
+                    p.start()
+                    self.threads.append(p)
+                    self.delete_in_file_list(os.path.join(
+                        self.download_folder, file['title']))
+
+            except Exception as e:
+                print("Error on : {}".format(file['title']))
+                print(e)
+                self.error_files.append(file['title'])
+        del file
+
+    def delete_in_file_list(self, path):
+        if path in self.current_files:
+            del self.current_files[path]
 
     def delete_file_path(self, obj):
         if obj["is_file"] is True:
@@ -124,46 +190,15 @@ class PyDriveSync():
         self.list_all_files(self.download_folder)
         for gdrive_path in self.gdriveIds:
             self.list_all_files_google(gdrive_path)
-        files_gdrive = [os.path.join(self.download_folder, x["title"])
-                        for x in self.current_remote_files]
-        for files_local in self.current_files.keys():
-            if files_local not in files_gdrive:
-                print("{} is missing in remote : deleting in local".format(files_local))
-                self.delete_file_path(self.current_files[files_local])
 
-        for file in self.current_remote_files:
-            print("###")
-            print("Processing remote file {} ({})".format(
-                file['title'], file["mimeType"]))
-            if file["mimeType"] == "application/vnd.google-apps.folder":
-                if not os.path.exists(os.path.join(self.download_folder, file['title'])):
-                    os.makedirs(os.path.join(
-                        self.download_folder, file['title']))
-                continue
-            must_download = True
-            if os.path.join(self.download_folder, file['title']) in self.current_files.keys():
-                md5 = self.md5(os.path.join(
-                    self.download_folder, file['title']))
-                if md5 == file["md5Checksum"]:
-                    must_download = False
-                print("{} alredy there, checking md5 are same? {} ('{}' vs '{}')".format(
-                    file['title'], not must_download, md5, file["md5Checksum"]))
-            if must_download is True:
-                if not os.path.exists(os.path.dirname(os.path.join(self.download_folder, file['title']))):
-                    os.makedirs(os.path.dirname(os.path.join(
-                        self.download_folder, file['title'])))
-                try:
-                    if file["mimeType"] not in self.mimetypes.keys():
-                        file.GetContentFile(os.path.join(
-                            self.download_folder, file['title']))
-                    else:
-                        file.GetContentFile(os.path.join(
-                            self.download_folder, file['title']), mimetype=self.mimetypes[file["mimeType"]])
-                    print("{} downloaded".format(file['title']))
-                except Exception as e:
-                    print("Error on : {}".format(file['title']))
-                    print(e)
-                    self.error_files.append(file['title'])
+        for files_local in self.current_files.keys():
+            print("Deleting : {}".format(files_local))
+            self.delete_file_path(self.current_files[files_local])
+
+        while len(self.threads) != 0:
+            for t in self.threads:
+                if t.is_alive() == False:
+                    self.threads.remove(t)
 
 
 def copyConfigFile(config_file):

@@ -1,4 +1,5 @@
 import os
+import time
 import unittest
 from datetime import datetime, timedelta
 from os import path
@@ -9,6 +10,8 @@ from pydrivesync.client import PyDriveSync, copyConfigFile
 class pydrivesyncTest(unittest.TestCase):
 
     def test_read_file(self):
+        start_time = time.time()
+
         p = PyDriveSync("tests/", "tests/test-settings.yaml")
         file = open("tests/google_drive/plop.text", "w")
         file.write("plop")
@@ -26,6 +29,10 @@ class pydrivesyncTest(unittest.TestCase):
         md5_2 = p.md5("tests/google_drive/test_folder/plop3.txt")
 
         p.run()
+        while len(p.threads) != 0:
+            print(len(p.threads))
+            time.sleep(1)
+
         self.assertTrue(os.path.exists("tests/google_drive/test_file.docx"))
         self.assertFalse(os.path.exists("tests/google_drive/plop.text"))
         self.assertTrue(os.path.exists("tests/google_drive/plop2.txt"))
@@ -35,6 +42,9 @@ class pydrivesyncTest(unittest.TestCase):
         self.assertNotEqual(
             p.md5("tests/google_drive/test_folder/plop3.txt"), md5_2)
         self.assertTrue(os.path.exists("tests/google_drive/Test_2folder/"))
+
+        print("Tested in {}".format(
+            (time.time() - start_time)))
 
     def test_config_file(self):
         copyConfigFile("tests/settings.yaml")
