@@ -1,5 +1,6 @@
 import hashlib
 import os
+import random
 import shutil
 
 import pkg_resources
@@ -7,6 +8,7 @@ from pydrive.auth import GoogleAuth
 from pydrive.drive import GoogleDrive
 
 from pydrivesync import constance
+from pydrivesync.helper import sizeof_fmt
 from pydrivesync.ThreadDownloader import Downloader
 
 
@@ -15,7 +17,8 @@ class PyDriveSync():
     DRIVE_PATH = "google_drive/"
     current_files = dict()
     current_remote_files = []
-    threads = []
+    big_files_threads = []
+    small_files_threads = []
     drive = None
     GOOGLE_MIME = [
         "application/vnd.google-apps.folder",
@@ -50,7 +53,9 @@ class PyDriveSync():
 
     def md5(self, fname):
         with open(fname, "rb") as file:
-            return hashlib.md5(file.read()).hexdigest()
+            md5 = hashlib.md5(file.read()).hexdigest()
+        file.close()
+        return md5
 
     def list_all_files(self, path):
         objects = os.listdir(path)
@@ -88,6 +93,8 @@ class PyDriveSync():
         files = sorted(
             files, key=lambda file: int(file['fileSize']) if 'fileSize' in file else 0)
 
+        random.shuffle(files)
+
         for file in files:
             # no_delete = ['kind', 'id', 'etag', 'selfLink', 'webContentLink', 'alternateLink', 'embedLink', 'iconLink', 'thumbnailLink', 'title', 'mimeType', 'labels', 'copyRequiresWriterPermission', 'createdDate', 'modifiedDate', 'modifiedByMeDate', 'lastViewedByMeDate', 'markedViewedByMeDate','version', 'parents', 'exportLinks', 'userPermission', 'quotaBytesUsed', 'ownerNames', 'owners', 'lastModifyingUserName', 'lastModifyingUser', 'capabilities', 'editable', 'copyable', 'writersCanShare', 'shared', 'explicitlyTrashed', 'appDataContents', 'spaces']
             no_delete = ["title", "mimeType", "id", "md5Checksum"]
@@ -108,9 +115,6 @@ class PyDriveSync():
         del files
 
     def download(self, file):
-        print("###")
-        print("Processing remote file {} ({}  {})".format(
-            file['title'], file["mimeType"], file["fileSize"] if "fileSize" in file else 0))
         if file["mimeType"] == "application/vnd.google-apps.folder":
             if not os.path.exists(os.path.join(self.download_folder, file['title'])):
                 os.makedirs(os.path.join(
@@ -129,6 +133,7 @@ class PyDriveSync():
                 file['title'], not must_download, md5, file["md5Checksum"]))
             self.delete_in_file_list(os.path.join(
                 self.download_folder, file['title']))
+            del md5
 
         if not os.path.exists(os.path.dirname(os.path.join(self.download_folder, file['title']))):
             os.makedirs(os.path.dirname(os.path.join(
@@ -136,33 +141,40 @@ class PyDriveSync():
 
         if must_download is True:
             try:
-                if file["mimeType"] not in self.mimetypes.keys() and int(file["fileSize"]) < 1000000:
-                    file.GetContentFile(os.path.join(
-                        self.download_folder, file['title']))
+                if file["mimeType"] not in self.mimetypes.keys() and int(file["fileSize"]) < 10000000:
+                    self.waking_up_thread_for(
+                        file, self.small_files_threads, 7, "small")
                 else:
-                    while len(self.threads) > 5:
-                        for t in self.threads:
-                            if t.is_alive() == False:
-                                self.threads.remove(t)
-                    print("there is currently {} threads alive".format(
-                        len(self.threads)))
-                    p = None
-                    if file["mimeType"] not in self.mimetypes.keys():
-                        p = Downloader(self.download_folder, file)
-                    else:
-                        p = Downloader(self.download_folder, file,
-                                       self.mimetypes[file["mimeType"]])
-                    print("Waking up new thread")
-                    p.start()
-                    self.threads.append(p)
-                    self.delete_in_file_list(os.path.join(
-                        self.download_folder, file['title']))
+                    self.waking_up_thread_for(
+                        file, self.big_files_threads, 4, "big")
+                print("###")
+                print("Processing remote file {} ({}  {})".format(
+                    file['title'], file["mimeType"], sizeof_fmt(file)))
+                self.delete_in_file_list(os.path.join(
+                    self.download_folder, file['title']))
 
             except Exception as e:
                 print("Error on : {}".format(file['title']))
                 print(e)
                 self.error_files.append(file['title'])
         del file
+
+    def waking_up_thread_for(self, file, thread_list, limit, type):
+        while len(thread_list) >= limit:
+            for t in thread_list:
+                if t.is_alive() == False:
+                    thread_list.remove(t)
+        print("there is currently {} threads alive for {} limit is {}".format(
+            len(thread_list), type, limit))
+        p = None
+        if file["mimeType"] not in self.mimetypes.keys():
+            p = Downloader(self.download_folder, file)
+        else:
+            p = Downloader(self.download_folder, file,
+                           self.mimetypes[file["mimeType"]])
+        print("Waking up new thread for '{}'".format(type))
+        p.start()
+        thread_list.append(p)
 
     def delete_in_file_list(self, path):
         if path in self.current_files:
@@ -195,10 +207,11 @@ class PyDriveSync():
             print("Deleting : {}".format(files_local))
             self.delete_file_path(self.current_files[files_local])
 
-        while len(self.threads) != 0:
-            for t in self.threads:
+        threads = self.big_files_threads + self.small_files_threads
+        while len(threads) != 0:
+            for t in threads:
                 if t.is_alive() == False:
-                    self.threads.remove(t)
+                    threads.remove(t)
 
 
 def copyConfigFile(config_file):

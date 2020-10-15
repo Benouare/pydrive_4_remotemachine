@@ -29,9 +29,6 @@ class pydrivesyncTest(unittest.TestCase):
         md5_2 = p.md5("tests/google_drive/test_folder/plop3.txt")
 
         p.run()
-        while len(p.threads) != 0:
-            print(len(p.threads))
-            time.sleep(1)
 
         self.assertTrue(os.path.exists("tests/google_drive/test_file.docx"))
         self.assertFalse(os.path.exists("tests/google_drive/plop.text"))

@@ -2,6 +2,8 @@ import os
 import threading
 import time
 
+from pydrivesync.helper import sizeof_fmt
+
 
 class Downloader(threading.Thread):
 
@@ -16,9 +18,9 @@ class Downloader(threading.Thread):
         self.target_path = target_path
 
     def run(self):
-        print("Downloading with th{}".format(threading.get_ident()))
+        # print("Downloading with th{}".format(threading.get_ident()))
         start_time = time.time()
         self.file.GetContentFile(os.path.join(
             self.target_path, self.file['title']), self.force_mime)
-        print("Downloaded in {} with th{}".format(
-            (time.time() - start_time), threading.get_ident()))
+        print("Downloaded  :: {} ({}) in {:.2f}s with th{}".format(
+            self.file['title'], sizeof_fmt(self.file), (time.time() - start_time), threading.get_ident()))
