@@ -106,3 +106,4 @@ tests/settings.yaml
 google_drive/
 
 credentials.json
+pydrivesync/temp_*
