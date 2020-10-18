@@ -81,6 +81,9 @@ class PyDriveSync():
                     index  = self.temp_list_file.index(path_name)
                     self.list_file.append(path_name)
                     self.list_md5.append(self.temp_list_md5[index])
+                self.number_file+=1
+                if self.number_file == 1000:
+                    self.update_file()
 
     def list_all_files_google(self, id, name=None):
         if name is None:
