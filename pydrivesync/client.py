@@ -24,6 +24,7 @@ class PyDriveSync():
     temp_list_md5 = list()
     temp_list_file = list()
     drive = None
+    number_file = 0
     GOOGLE_MIME = [
         "application/vnd.google-apps.folder",
         "application/vnd.google-apps.audio",
@@ -155,6 +156,7 @@ class PyDriveSync():
         if must_download is True:
             try:
                 if "md5Checksum" in file:
+                    self.number_file+=1
                     self.list_md5.append(file["md5Checksum"])
                     self.list_file.append(os.path.join(self.download_folder, file['title']))
                 if file["mimeType"] not in self.mimetypes.keys() and int(file["fileSize"]) < 10000000:
@@ -173,6 +175,9 @@ class PyDriveSync():
                 print("Error on : {}".format(file['title']))
                 print(e)
                 self.error_files.append(file['title'])
+        if (self.number_file==100):
+            self.number_file=0
+            self.update_file()
         del file
 
     def waking_up_thread_for(self, file, thread_list, limit, type):
@@ -223,16 +228,18 @@ class PyDriveSync():
                     self.temp_list_md5.append(line[1])
             f.close()
 
-
-    def run(self):
-        self.list_all_files(self.download_folder)
-        self.temp_list_md5= list()
-        self.temp_list_file = list()
+    def update_file(self):
         temp_file_md5_list = pkg_resources.resource_filename(__name__, "temp_file_md5_list.txt")
         with open(temp_file_md5_list, 'w') as f:
             for i in range(len(self.list_file)):
                 f.write('{}:{}\n'.format(self.list_file[i],self.list_md5[i]))
             f.close()
+
+    def run(self):
+        self.list_all_files(self.download_folder)
+        self.temp_list_md5= list()
+        self.temp_list_file = list()
+        self.update_file()
 
         for gdrive_path in self.gdriveIds:
             self.list_all_files_google(gdrive_path)
@@ -246,11 +253,7 @@ class PyDriveSync():
             for t in threads:
                 if t.is_alive() == False:
                     threads.remove(t)
-        temp_file_md5_list = pkg_resources.resource_filename(__name__, "temp_file_md5_list.txt")
-        with open(temp_file_md5_list, 'w') as f:
-            for i in range(len(self.list_file)):
-                f.write('{}:{}\n'.format(self.list_file[i],self.list_md5[i]))
-            f.close()
+        self.update_file()
 
 
 def copyConfigFile(config_file):
