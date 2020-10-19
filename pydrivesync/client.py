@@ -5,9 +5,9 @@ import shutil
 import sys
 
 import pkg_resources
-from pydrive.auth import GoogleAuth
-from pydrive.drive import GoogleDrive
 
+from pydrive2.auth import GoogleAuth
+from pydrive2.drive import GoogleDrive
 from pydrivesync import constance
 from pydrivesync.helper import sizeof_fmt
 from pydrivesync.ThreadDownloader import Downloader
