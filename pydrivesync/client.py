@@ -2,6 +2,7 @@ import hashlib
 import os
 import random
 import shutil
+import sys
 
 import pkg_resources
 from pydrive.auth import GoogleAuth
@@ -66,11 +67,11 @@ class PyDriveSync():
         objects = os.listdir(path)
         for file in objects:
             path_name = os.path.join(path, file)
-            #current_file = {
+            # current_file = {
             #    "path": path_name,
             #    "is_file": os.path.isfile(path_name)
-            #}
-            #self.current_files[current_file["path"]] = current_file
+            # }
+            # self.current_files[current_file["path"]] = current_file
             if not os.path.isfile(path_name):
                 self.list_all_files(os.path.join(path, file))
             else:
@@ -108,18 +109,23 @@ class PyDriveSync():
             }
         files = self.drive.ListFile(params).GetList()
 
-        files = sorted(
-            files, key=lambda file: int(file['fileSize']) if 'fileSize' in file else 0)
+        no_delete = ["title", "mimeType", "id", "md5Checksum", "fileSize"]
+        # print(sys.getsizeof(files))
+        new_files = list()
+        for f in files:
+            for key in list(f.keys()):
+                if key not in no_delete:
+                    del f[key]
+                if "fileSize" not in f:
+                    f["fileSize"] = 0
+            new_files.append(f)
+        del files
+        random.shuffle(new_files)
 
-        random.shuffle(files)
-
-        for file in files:
+        for file in new_files:
             # no_delete = ['kind', 'id', 'etag', 'selfLink', 'webContentLink', 'alternateLink', 'embedLink', 'iconLink', 'thumbnailLink', 'title', 'mimeType', 'labels', 'copyRequiresWriterPermission', 'createdDate', 'modifiedDate', 'modifiedByMeDate', 'lastViewedByMeDate', 'markedViewedByMeDate','version', 'parents', 'exportLinks', 'userPermission', 'quotaBytesUsed', 'ownerNames', 'owners', 'lastModifyingUserName', 'lastModifyingUser', 'capabilities', 'editable', 'copyable', 'writersCanShare', 'shared', 'explicitlyTrashed', 'appDataContents', 'spaces']
-            no_delete = ["title", "mimeType", "id", "md5Checksum"]
-            # keys = list(file.keys())
-            # for key in keys:
-            #    if key not in no_delete:
-            #        del file[key]
+            self.delete_in_file_list(os.path.join(
+                self.download_folder, file['title']))
             if name:
                 file["title"] = os.path.join(name, file["title"])
             if file["mimeType"] == "application/vnd.google-apps.folder":
@@ -130,7 +136,6 @@ class PyDriveSync():
                     print("error {}".format(file["title"]))
                     print(e)
             self.download(file)
-        del files
 
     def download(self, file):
         if file["mimeType"] == "application/vnd.google-apps.folder":
@@ -139,7 +144,6 @@ class PyDriveSync():
                     self.download_folder, file['title']))
             self.delete_in_file_list(os.path.join(
                 self.download_folder, file['title']))
-            del file
             return
 
         must_download = True
@@ -160,9 +164,14 @@ class PyDriveSync():
             try:
                 if "md5Checksum" in file:
                     self.number_file += 1
-                    self.list_md5.append(file["md5Checksum"])
-                    self.list_file.append(os.path.join(
-                        self.download_folder, file['title']))
+                    if os.path.join(self.download_folder, file['title']) in self.list_file:
+                        idx = self.list_file.index(os.path.join(
+                            self.download_folder, file['title']))
+                        self.list_md5[idx] = file["md5Checksum"]
+                    else:
+                        self.list_md5.append(file["md5Checksum"])
+                        self.list_file.append(os.path.join(
+                            self.download_folder, file['title']))
                 if file["mimeType"] not in self.mimetypes.keys() and int(file["fileSize"]) < 10000000:
                     self.waking_up_thread_for(
                         file, self.small_files_threads, 7, "small")
@@ -172,9 +181,6 @@ class PyDriveSync():
                 print("###")
                 print("Processing remote file {} ({}  {})".format(
                     file['title'], file["mimeType"], sizeof_fmt(file)))
-                self.delete_in_file_list(os.path.join(
-                    self.download_folder, file['title']))
-
             except Exception as e:
                 print("Error on : {}".format(file['title']))
                 print(e)
@@ -189,6 +195,7 @@ class PyDriveSync():
             for t in thread_list:
                 if t.is_alive() == False:
                     thread_list.remove(t)
+                    del t
         print("there is currently {} threads alive for {} limit is {}".format(
             len(thread_list), type, limit))
         p = None
@@ -203,18 +210,20 @@ class PyDriveSync():
 
     def delete_in_file_list(self, path):
         if path in self.list_file:
+            print("{} is in list=>{} ".format(path, path in self.list_file))
             idx = self.list_file.index(path)
             del self.list_file[idx]
             del self.list_md5[idx]
+            #del self.list_md5.remove[idx]
+            print("{} is in list=>{} ".format(path, path in self.list_file))
 
     def delete_file_path(self, path):
         if os.path.isfile(path) is True:
             if os.path.exists(path):
                 os.remove(path)
                 self.delete_in_file_list(path)
-            if os.listdir(os.path.dirname(path))==0:
+            if os.listdir(os.path.dirname(path)) == 0:
                 os.rmdir(os.path.dirname(path))
-
 
     def __init__(self, file_path, file_config="/etc/pydrivesync.yaml", gdriveIds=["root"]):
         self.download_folder = os.path.join(
@@ -242,12 +251,12 @@ class PyDriveSync():
         with open(temp_file_md5_list, 'w') as f:
             for i in range(len(self.list_file)):
                 f.write('{}:{}\n'.format(self.list_file[i], self.list_md5[i]))
-            f.close()
+        f.close()
 
     def run(self):
         self.list_all_files(self.download_folder)
-        self.temp_list_md5 = list()
-        self.temp_list_file = list()
+        self.temp_list_md5 = None
+        self.temp_list_file = None
         self.update_temp_file()
 
         for gdrive_path in self.gdriveIds:

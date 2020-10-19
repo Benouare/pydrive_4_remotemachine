@@ -3,3 +3,4 @@ pytest-cov==2.8.1
 pydrive
 setuptools
 wheel
+memory-profiler
