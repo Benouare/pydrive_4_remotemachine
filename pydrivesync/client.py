@@ -20,10 +20,10 @@ class PyDriveSync():
     current_remote_files = []
     big_files_threads = []
     small_files_threads = []
-    list_md5 = list()
-    list_file = list()
-    temp_list_md5 = list()
-    temp_list_file = list()
+    current_list_md5 = list()
+    current_list_file = list()
+    delete_list_md5 = list()
+    delete_list_file = list()
     drive = None
     number_file = 0
     GOOGLE_MIME = [
@@ -75,13 +75,13 @@ class PyDriveSync():
             if not os.path.isfile(path_name):
                 self.list_all_files(os.path.join(path, file))
             else:
-                if not path_name in self.temp_list_file:
-                    self.list_file.append(path_name)
-                    self.list_md5.append(self.md5(path_name))
+                if not path_name in self.current_list_md5:
+                    self.delete_list_file.append(path_name)
+                    self.delete_list_md5.append(self.md5(path_name))
                 else:
-                    index = self.temp_list_file.index(path_name)
-                    self.list_file.append(path_name)
-                    self.list_md5.append(self.temp_list_md5[index])
+                    index = self.current_list_file.index(path_name)
+                    self.delete_list_file.append(path_name)
+                    self.delete_list_md5.append(self.current_list_md5[index])
                 self.number_file += 1
                 if self.number_file == 1000:
                     self.number_file = 0
@@ -147,14 +147,15 @@ class PyDriveSync():
             return
 
         must_download = True
-        if os.path.join(self.download_folder, file['title']) in self.list_file and "md5Checksum" in file:
-            id_item = self.list_file.index(
+        if os.path.join(self.download_folder, file['title']) in self.delete_list_file and "md5Checksum" in file:
+            id_item = self.delete_list_file.index(
                 os.path.join(self.download_folder, file['title']))
-            if self.list_md5[id_item] == file["md5Checksum"]:
+            if self.delete_list_md5[id_item] == file["md5Checksum"]:
                 must_download = False
             print("{} alredy there, checking md5 are same? {} ('{}' vs '{}')".format(
-                file['title'], not must_download, self.list_md5[id_item], file["md5Checksum"]))
-            self.list_md5[id_item] = file["md5Checksum"]
+                file['title'], not must_download, self.delete_list_md5[id_item], file["md5Checksum"]))
+            self.current_list_file.append(self.delete_list_file[id_item])
+            self.current_list_md5.append(file["md5Checksum"])
 
         if not os.path.exists(os.path.dirname(os.path.join(self.download_folder, file['title']))):
             os.makedirs(os.path.dirname(os.path.join(
@@ -164,14 +165,8 @@ class PyDriveSync():
             try:
                 if "md5Checksum" in file:
                     self.number_file += 1
-                    if os.path.join(self.download_folder, file['title']) in self.list_file:
-                        idx = self.list_file.index(os.path.join(
-                            self.download_folder, file['title']))
-                        self.list_md5[idx] = file["md5Checksum"]
-                    else:
-                        self.list_md5.append(file["md5Checksum"])
-                        self.list_file.append(os.path.join(
-                            self.download_folder, file['title']))
+                    self.delete_in_file_list(os.path.join(
+                        self.download_folder, file['title']))
                 if file["mimeType"] not in self.mimetypes.keys() and int(file["fileSize"]) < 10000000:
                     self.waking_up_thread_for(
                         file, self.small_files_threads, 7, "small")
@@ -209,13 +204,13 @@ class PyDriveSync():
         thread_list.append(p)
 
     def delete_in_file_list(self, path):
-        if path in self.list_file:
-            print("{} is in list=>{} ".format(path, path in self.list_file))
-            idx = self.list_file.index(path)
-            del self.list_file[idx]
-            del self.list_md5[idx]
+        if path in self.delete_list_file:
+            print("{} is in list=>{} ".format(path, path in self.delete_list_file))
+            idx = self.delete_list_file.index(path)
+            del self.delete_list_file[idx]
+            del self.delete_list_md5[idx]
             #del self.list_md5.remove[idx]
-            print("{} is in list=>{} ".format(path, path in self.list_file))
+            print("{} is in list=>{} ".format(path, path in self.delete_list_file))
 
     def delete_file_path(self, path):
         if os.path.isfile(path) is True:
@@ -241,36 +236,37 @@ class PyDriveSync():
                 l = f.read()
                 if l is not None and l != "":
                     line = l.split(":")
-                    self.temp_list_file.append(line[0])
-                    self.temp_list_md5.append(line[1])
+                    self.current_list_file.append(line[0])
+                    self.current_list_md5.append(line[1])
             f.close()
 
     def update_temp_file(self):
         temp_file_md5_list = pkg_resources.resource_filename(
             __name__, "temp_file_md5_list.txt")
         with open(temp_file_md5_list, 'w') as f:
-            for i in range(len(self.list_file)):
-                f.write('{}:{}\n'.format(self.list_file[i], self.list_md5[i]))
+            for i in range(len(self.current_list_file)):
+                f.write('{}:{}\n'.format(self.current_list_file[i], self.current_list_md5[i]))
         f.close()
 
     def run(self):
         self.list_all_files(self.download_folder)
-        self.temp_list_md5 = None
-        self.temp_list_file = None
+        self.current_list_md5 = list()
+        self.current_list_file = list()
         self.update_temp_file()
 
         for gdrive_path in self.gdriveIds:
             self.list_all_files_google(gdrive_path)
-
-        for files_local in self.list_file:
-            print("Deleting : {}".format(files_local))
-            self.delete_file_path(files_local)
 
         threads = self.big_files_threads + self.small_files_threads
         while len(threads) != 0:
             for t in threads:
                 if t.is_alive() == False:
                     threads.remove(t)
+                    
+        for files_local in self.delete_list_file:
+            print("Deleting : {}".format(files_local))
+            self.delete_file_path(files_local)
+
         self.update_temp_file()
 
 
